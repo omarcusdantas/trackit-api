@@ -17,7 +17,13 @@ export async function signup(req, res) {
         const lastDate = getWeekday(timezone);
 
         await db.collection("users").insertOne({ name, email, password: hash });
-        await db.collection("usersData").insertOne({ email, habits: [], history: [], timezone, lastDate });
+        await db.collection("usersData").insertOne({ 
+            email, 
+            habits: [],
+            history: [], 
+            timezone, 
+            lastDate,
+        });
 
         return res.sendStatus(201);
     } catch(error) {
