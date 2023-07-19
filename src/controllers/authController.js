@@ -37,7 +37,7 @@ export async function signin(req, res) {
 
         if (bcrypt.compareSync(password, foundUser.password)) {
             const token = jwt.sign({ email }, process.env.JWT_SECRET, { expiresIn: 60*60*24*30 });
-            return res.status(200).send(token);
+            return res.status(200).send({ name: foundUser.name, token });
         }
         return res.status(401).send("Wrong password");
     } catch(error) {

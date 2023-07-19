@@ -15,7 +15,7 @@ export async function addHabit(req, res) {
             newId = userData.habits[userData.habits.length-1].id + 1;
         }
 
-        const newHabit = { name, days, id: newId };
+        const newHabit = { name, days, id: newId, currentSequence: 0, highestSequence: 0 };
 
         await db
             .collection("usersData")
@@ -83,4 +83,15 @@ export async function getDailyHabits(req, res) {
     } catch (error) {
         return res.status(500).send(error.message);
     }
-  }
+}
+
+export async function getHistory(req, res) {
+    const email = res.locals.email;
+  
+    try {
+        const userData = await db.collection("usersData").findOne({ email });
+        return res.send(userData.history);
+    } catch (error) {
+        return res.status(500).send(error.message);
+    }
+}
