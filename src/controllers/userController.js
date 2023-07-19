@@ -1,4 +1,5 @@
 import { db } from "../database/database.connection.js";
+import { getWeekday } from "../getUserDate.js";
 
 export async function addHabit(req, res) {
     const email = res.locals.email;
@@ -71,3 +72,15 @@ export async function deleteHabit(req, res) {
         return res.status(500).send(error.message);
     }
 }
+
+export async function getDailyHabits(req, res) {
+    const email = res.locals.email;
+  
+    try {
+        const userData = await db.collection("usersData").findOne({ email });
+        const dailyHabits = userData.habits.filter((habit) => habit.days.includes(userData.lastDate));
+        return res.send(dailyHabits);
+    } catch (error) {
+        return res.status(500).send(error.message);
+    }
+  }

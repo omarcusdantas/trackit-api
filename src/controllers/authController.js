@@ -1,6 +1,7 @@
 import bcrypt from "bcrypt";
 import { db } from "../database/database.connection.js";
 import jwt from "jsonwebtoken";
+import { getWeekday } from "../getUserDate.js";
 
 export async function signup(req, res) {
     const { name, email, password, timezone } = req.body
@@ -13,9 +14,10 @@ export async function signup(req, res) {
         }
 
         const hash = bcrypt.hashSync(password, 10);
+        const lastDate = getWeekday(timezone);
 
         await db.collection("users").insertOne({ name, email, password: hash });
-        await db.collection("usersData").insertOne({ email, habits: [], history: [], timezone, lastUpdate: null });
+        await db.collection("usersData").insertOne({ email, habits: [], history: [], timezone, lastDate });
 
         return res.sendStatus(201);
     } catch(error) {
