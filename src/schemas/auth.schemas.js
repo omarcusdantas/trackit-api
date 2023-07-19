@@ -9,3 +9,8 @@ export const schemaSignup = joi.object({
     password: joi.string().min(4).max(20).required(),
     timezone: joiTZ.timezone().required(),
 });
+
+export const schemaSignin = joi.object({
+    email: joi.string().email().required(),
+    password: joi.string().required(),
+});
