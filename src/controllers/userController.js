@@ -145,3 +145,44 @@ export async function getHistory(req, res) {
         return res.status(500).send(error.message);
     }
 }
+
+export async function trackHabit(req, res) {
+    const email = res.locals.email;
+    const type = req.params.tipo;
+    const id = parseInt(req.params.id);
+
+    if (isNaN(id) || (type !== "check" && type !== "uncheck")) {
+        return res.sendStatus(400);
+    }
+
+    const doneStatus = type === "check";
+
+    try {
+        const userData = await db.collection("usersData").findOne({ email });
+        const newHistory = [...userData.history];
+
+        if (newHistory[0].date !== getDate(userData.timezone)) {
+            return res.status(404).send("No habits for today.");
+        }
+
+        const habitIndex = newHistory[0].habits.findIndex((habit) => habit.id === id);
+
+        if (habitIndex === -1) {
+            return res.status(404).send("Habit not found.");
+        }
+
+        newHistory[0].habits[habitIndex].done = doneStatus;
+
+        await db.collection("usersData").updateOne(
+            { email },
+            {
+                $set: {
+                    history: newHistory,
+                },
+            }
+        );
+        return res.sendStatus(200);
+    } catch (error) {
+        return res.status(500).send(error.message);
+    }
+}
