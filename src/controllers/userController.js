@@ -1,62 +1,76 @@
 import { db } from "../database/database.connection.js";
 import { getDate, getWeekday } from "../getUserDate.js";
 
+async function updateCurrentHistory(email, newHabit, currentHistory, today) {
+    if (currentHistory?.date === today) {
+        currentHistory.habits.push({
+            name: newHabit.name,
+            done: false,
+            id: newHabit.id,
+        });
+        await db.collection("userActivities").updateOne(
+            { email },
+            {
+                $push: { habits: newHabit },
+                $set: { "history.0": currentHistory },
+            }
+        );
+        return;
+    }
+    const newHistoryEntry = {
+        date: today,
+        habits: [
+            {
+                name: newHabit.name,
+                done: false,
+                id: newHabit.id,
+            },
+        ],
+    };
+    await db.collection("userActivities").updateOne(
+        { email },
+        {
+            $push: {
+                habits: newHabit,
+                history: { $each: [newHistoryEntry], $position: 0 },
+            },
+        }
+    );
+}
+
 export async function addHabit(req, res) {
-    const email = res.locals.email;
+    const { email, utcOffset } = res.locals.user;
     const { name, days } = req.body;
 
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-
-        let newId;
-        if(userData.habits.length === 0) {
-            newId = 0;
-        } else {
-            newId = userData.habits[userData.habits.length-1].id + 1;
-        }
-
-        const newHabit = { name, days, id: newId, currentSequence: 0, highestSequence: 0 };
-
-        const weekday = getWeekday(userData.timezone);
+        const userActivities = await db.collection("userActivities").findOne(
+            { email },
+            {
+                projection: {
+                    habits: 1,
+                    history: 1,
+                },
+            }
+        );
+        const newId =
+            userActivities.habits.length === 0 ? 0 : userActivities.habits[userActivities.habits.length - 1].id + 1;
+        const newHabit = {
+            name,
+            days,
+            id: newId,
+            currentSequence: 0,
+            highestSequence: 0,
+        };
+        const weekday = getWeekday(utcOffset);
 
         if (days.includes(weekday)) {
-            const updatedHistory = [...userData.history];
-            const today = getDate(userData.timezone);
-            if (updatedHistory.length !== 0 && updatedHistory[0].date === today) {
-                updatedHistory[0].habits.push({
-                    name,
-                    done: false,
-                    id: newId,
-                });
-            } else {
-                updatedHistory.unshift({
-                    date: today,
-                    habits: [{
-                        name,
-                        done: false,
-                        id: newId,
-                    }]
-                });
-            }
-
-            await db
-                .collection("usersData")
-                .updateOne(
-                    { email },
-                    { $set: { 
-                        habits: [...userData.habits, newHabit], 
-                        history: updatedHistory,
-                    }}
-                );
+            const currentHistory = userActivities.history[0];
+            const today = getDate(utcOffset);
+            await updateCurrentHistory(email, newHabit, currentHistory, today);
             return res.sendStatus(201);
         }
 
-        await db
-            .collection("usersData")
-            .updateOne(
-                { email },
-                { $set: { habits: [...userData.habits, newHabit] }}
-            );
+        await db.collection("userActivities").updateOne({ email }, { $push: { habits: newHabit } });
         return res.sendStatus(201);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -64,11 +78,11 @@ export async function addHabit(req, res) {
 }
 
 export async function getHabits(req, res) {
-    const email = res.locals.email;
+    const { email } = res.locals.user;
 
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-        return res.send(userData.habits);
+        const userActivities = await db.collection("userActivities").findOne({ email }, { projection: { habits: 1 } });
+        return res.send(userActivities.habits);
     } catch (error) {
         return res.status(500).send(error.message);
     }
@@ -76,47 +90,53 @@ export async function getHabits(req, res) {
 
 export async function deleteHabit(req, res) {
     const id = parseInt(req.params.id);
-    const email = res.locals.email;
+    const { email, utcOffset } = res.locals.user;
 
     if (isNaN(id)) {
-        return res.sendStatus(400);
+        return res.status(400).send("Insert a valid id.");
     }
 
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-        const habitIndex = userData.habits.findIndex((habit) => habit.id === id);
+        const userActivities = await db.collection("userActivities").findOne(
+            { email },
+            {
+                projection: {
+                    habits: 1,
+                    history: 1,
+                },
+            }
+        );
+        const habitIndex = userActivities.habits.findIndex((habit) => habit.id === id);
 
         if (habitIndex === -1) {
             return res.status(404).send("Habit not found");
         }
 
-        const updatedHabits = [
-            ...userData.habits.slice(0, habitIndex),
-            ...userData.habits.slice(habitIndex + 1),
-        ];
-
-        const habit = userData.habits[habitIndex];
-        const weekday = getWeekday(userData.timezone);
+        const habit = userActivities.habits[habitIndex];
+        const weekday = getWeekday(utcOffset);
+        userActivities.habits.splice(habitIndex, 1);
 
         if (habit.days.includes(weekday)) {
-            const updatedHistory = [...userData.history];
-            updatedHistory[0].habits = updatedHistory[0].habits.filter((habit) => habit.id !== id);
+            const currentHistory = userActivities.history[0];
+            currentHistory.habits = currentHistory.habits.filter((habit) => habit.id !== id);
 
-            if(updatedHistory[0].habits.length === 0) {
-                updatedHistory.shift();
+            if (currentHistory.habits.length === 0) {
+                await db
+                    .collection("userActivities")
+                    .updateOne(
+                        { email },
+                        { $set: { habits: userActivities.habits }, $pop: { history: -1 } }
+                    );
+                return res.sendStatus(204);
             }
 
-            await db.collection("usersData").updateOne(
-                { email },
-                { $set: { habits: updatedHabits, history: updatedHistory } }
-            );
+            await db
+                .collection("userActivities")
+                .updateOne({ email }, { $set: { habits: userActivities.habits, "history.0": currentHistory } });
             return res.sendStatus(204);
         }
 
-        await db.collection("usersData").updateOne(
-            { email },
-            { $set: { habits: updatedHabits } }
-        );
+        await db.collection("userActivities").updateOne({ email }, { $set: { habits: userActivities.habits } });
         return res.sendStatus(204);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -124,11 +144,12 @@ export async function deleteHabit(req, res) {
 }
 
 export async function getDailyHabits(req, res) {
-    const email = res.locals.email;
-  
+    const { email, utcOffset } = res.locals.user;
+
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-        const dailyHabits = userData.habits.filter((habit) => habit.days.includes(userData.lastDate));
+        const userActivities = await db.collection("userActivities").findOne({ email }, { projection: { habits: 1 } });
+        const weekday = getWeekday(utcOffset);
+        const dailyHabits = userActivities.habits.filter((habit) => habit.days.includes(weekday));
         return res.send(dailyHabits);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -136,19 +157,19 @@ export async function getDailyHabits(req, res) {
 }
 
 export async function getHistory(req, res) {
-    const email = res.locals.email;
-  
+    const { email } = res.locals.user;
+
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-        return res.send(userData.history);
+        const userActivities = await db.collection("userActivities").findOne({ email }, { projection: { history: 1 } });
+        return res.send(userActivities.history);
     } catch (error) {
         return res.status(500).send(error.message);
     }
 }
 
 export async function trackHabit(req, res) {
-    const email = res.locals.email;
-    const type = req.params.tipo;
+    const { email, utcOffset } = res.locals.user;
+    const type = req.params.type;
     const id = parseInt(req.params.id);
 
     if (isNaN(id) || (type !== "check" && type !== "uncheck")) {
@@ -158,29 +179,28 @@ export async function trackHabit(req, res) {
     const doneStatus = type === "check";
 
     try {
-        const userData = await db.collection("usersData").findOne({ email });
-        const newHistory = [...userData.history];
+        const userActivities = await db
+            .collection("userActivities")
+            .findOne({ email }, { projection: { history: 1 } });
+        const currentHistory = userActivities.history[0];
 
-        if (newHistory[0].date !== getDate(userData.timezone)) {
+        if (currentHistory?.date !== getDate(utcOffset)) {
             return res.status(404).send("No habits for today.");
         }
 
-        const habitIndex = newHistory[0].habits.findIndex((habit) => habit.id === id);
+        const habitIndex = currentHistory.habits.findIndex((habit) => habit.id === id);
 
         if (habitIndex === -1) {
-            return res.status(404).send("Habit not found.");
+            return res.status(404).send("Habit not found for today.");
         }
 
-        newHistory[0].habits[habitIndex].done = doneStatus;
+        if (currentHistory.habits[habitIndex].done === doneStatus) {
+            return res.status(409).send("Habit already in the desired state.");
+        }
 
-        await db.collection("usersData").updateOne(
-            { email },
-            {
-                $set: {
-                    history: newHistory,
-                },
-            }
-        );
+        await db
+            .collection("userActivities")
+            .updateOne({ email }, { $set: { [`history.0.habits.${habitIndex}.done`]: doneStatus } });
         return res.sendStatus(200);
     } catch (error) {
         return res.status(500).send(error.message);

@@ -10,7 +10,10 @@ export async function validateAuth(req, res, next) {
 
     try {
         const data = jwt.verify(token, process.env.JWT_SECRET);
-        res.locals.email = data.email;
+        res.locals.user = {
+            email: data.email,
+            utcOffset: data.utcOffset,
+        };
         next();
     } catch (error) {
         return res.sendStatus(401);
