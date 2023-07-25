@@ -4,6 +4,7 @@ import { stripHtml } from "string-strip-html";
 import { db } from "../database/database.connection.js";
 import { getWeekday } from "../getUserDate.js";
 
+// Creates new user on database
 export async function signup(req, res) {
     const { name, email, password, utcOffset } = req.body;
     const sanitizedName = stripHtml(name.toString()).result.trim();
@@ -38,6 +39,7 @@ export async function signup(req, res) {
     }
 }
 
+// Generates jwt if user's sigin info matches with database 
 export async function signin(req, res) {
     const tokenExpirationSeconds = 60 * 60 * 24 * 30;
     const { email, password } = req.body;

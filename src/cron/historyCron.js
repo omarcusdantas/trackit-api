@@ -1,6 +1,7 @@
 import { db } from "../database/database.connection.js";
 import { getWeekday, getDate, dayTurnedOffset, getPreviousDate } from "../getUserDate.js";
 
+// Updates habit's streak
 function updateHabits(user) {
     const habits = [...user.habits];
 
@@ -18,14 +19,17 @@ function updateHabits(user) {
     return habits;
 }
 
+// Updates user's history
 function updateHistory(user, newWeekday, utcTarget, bulkWriteOperations) {
     if (user.habits.length === 0) {
         return;
     }
 
+    // Checks if last history entry matches previous day to update habit's streak
     const newHabits = user.history[0]?.date === getPreviousDate(utcTarget) ? updateHabits(user) : [];
     const dailyHabits = user.habits.filter((habit) => habit.days.includes(newWeekday));
 
+    // Checks if there are any habits to do in current day
     if (dailyHabits.length === 0) {
         if (newHabits.length === 0) {
             return;
@@ -39,6 +43,7 @@ function updateHistory(user, newWeekday, utcTarget, bulkWriteOperations) {
         return;
     }
 
+    // Creates new history entry for current day if there are habits to do
     const newHistoryEntry = {
         date: getDate(utcTarget),
         habits: dailyHabits.map((habit) => ({
@@ -70,6 +75,7 @@ function updateHistory(user, newWeekday, utcTarget, bulkWriteOperations) {
     });
 }
 
+// Searches for users who have utcOffset matching the first hour of the day and updates their histories
 export default async function historyCron() {
     try {
         const utcTarget = dayTurnedOffset();
@@ -86,7 +92,8 @@ export default async function historyCron() {
             .collection("userActivities")
             .find({ email: { $in: usersToUpdate } })
             .toArray();
-
+        
+        // Aggregates all queries for optimization
         const bulkWriteOperations = [];
 
         for (const user of usersActivities) {

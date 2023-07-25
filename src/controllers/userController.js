@@ -2,7 +2,9 @@ import { stripHtml } from "string-strip-html";
 import { db } from "../database/database.connection.js";
 import { getDate, getWeekday } from "../getUserDate.js";
 
+// Updates history if new habit affects current day's history
 async function updateCurrentHistory(email, newHabit, currentHistory, today) {
+    // Inserts into current day's history
     if (currentHistory?.date === today) {
         currentHistory.habits.push({
             name: newHabit.name,
@@ -18,6 +20,8 @@ async function updateCurrentHistory(email, newHabit, currentHistory, today) {
         );
         return;
     }
+    
+    // Creates a history entry for current day
     const newHistoryEntry = {
         date: today,
         habits: [
@@ -39,21 +43,14 @@ async function updateCurrentHistory(email, newHabit, currentHistory, today) {
     );
 }
 
+// Adds new habit into userActivities
 export async function addHabit(req, res) {
     const { email, utcOffset } = res.locals.user;
     const { name, days } = req.body;
     const sanitizedName = stripHtml(name.toString()).result.trim();
 
     try {
-        const userActivities = await db.collection("userActivities").findOne(
-            { email },
-            {
-                projection: {
-                    habits: 1,
-                    history: 1,
-                },
-            }
-        );
+        const userActivities = await db.collection("userActivities").findOne( { email } );
         const newId =
             userActivities.habits.length === 0 ? 0 : userActivities.habits[userActivities.habits.length - 1].id + 1;
         const newHabit = {
@@ -65,6 +62,7 @@ export async function addHabit(req, res) {
         };
         const weekday = getWeekday(utcOffset);
 
+        // Checks if new habit affects current day's history
         if (days.includes(weekday)) {
             const currentHistory = userActivities.history[0];
             const today = getDate(utcOffset);
@@ -79,6 +77,7 @@ export async function addHabit(req, res) {
     }
 }
 
+// Gets list of user's habits
 export async function getHabits(req, res) {
     const { email } = res.locals.user;
 
@@ -90,6 +89,7 @@ export async function getHabits(req, res) {
     }
 }
 
+// Deletes a habit by id
 export async function deleteHabit(req, res) {
     const id = parseInt(req.params.id);
     const { email, utcOffset } = res.locals.user;
@@ -99,15 +99,7 @@ export async function deleteHabit(req, res) {
     }
 
     try {
-        const userActivities = await db.collection("userActivities").findOne(
-            { email },
-            {
-                projection: {
-                    habits: 1,
-                    history: 1,
-                },
-            }
-        );
+        const userActivities = await db.collection("userActivities").findOne( { email } );
         const habitIndex = userActivities.habits.findIndex((habit) => habit.id === id);
 
         if (habitIndex === -1) {
@@ -118,10 +110,12 @@ export async function deleteHabit(req, res) {
         const weekday = getWeekday(utcOffset);
         userActivities.habits.splice(habitIndex, 1);
 
+        // Updates history if excluded habit affects current day's history
         if (habit.days.includes(weekday)) {
             const currentHistory = userActivities.history[0];
             currentHistory.habits = currentHistory.habits.filter((habit) => habit.id !== id);
 
+            // Excludes current day's history if the excluded habit was the only one
             if (currentHistory.habits.length === 0) {
                 await db
                     .collection("userActivities")
@@ -131,7 +125,6 @@ export async function deleteHabit(req, res) {
                     );
                 return res.sendStatus(204);
             }
-
             await db
                 .collection("userActivities")
                 .updateOne({ email }, { $set: { habits: userActivities.habits, "history.0": currentHistory } });
@@ -145,6 +138,7 @@ export async function deleteHabit(req, res) {
     }
 }
 
+// Gets user's habits for current day
 export async function getDailyHabits(req, res) {
     const { email, utcOffset } = res.locals.user;
 
@@ -158,6 +152,7 @@ export async function getDailyHabits(req, res) {
     }
 }
 
+// Gets user's history
 export async function getHistory(req, res) {
     const { email } = res.locals.user;
 
@@ -169,6 +164,7 @@ export async function getHistory(req, res) {
     }
 }
 
+// Marks the daily habit as done or undone
 export async function trackHabit(req, res) {
     const { email, utcOffset } = res.locals.user;
     const type = req.params.type;

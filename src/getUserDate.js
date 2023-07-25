@@ -1,3 +1,4 @@
+// Gets the weekday(0-6) based on utcOffset
 export function getWeekday(utcOffset) {
     const offsetToMilliseconds = 3600000;
     const date = new Date();
@@ -5,6 +6,7 @@ export function getWeekday(utcOffset) {
     return utcDate.getUTCDay();
 }
 
+// Gets current day's date based on utcOffset
 export function getDate(utcOffset) {
     const offsetToMilliseconds = 3600000;
     const date = new Date();
@@ -17,6 +19,7 @@ export function getDate(utcOffset) {
     return `${day}/${month}/${year}`;
 }
 
+// Gets previous day's date based on utcOffset
 export function getPreviousDate(utcOffset) {
     const offsetToMilliseconds = 3600000;
     const oneDayMilliseconds = 24 * 60 * 60 * 1000;
@@ -30,6 +33,7 @@ export function getPreviousDate(utcOffset) {
     return `${day}/${month}/${year}`;
 }
 
+// Searches for the utcOffset where is the first hour of the day
 export function dayTurnedOffset() {
     const currentUTCHour = new Date().getUTCHours();
     let offset = 24 - currentUTCHour;
