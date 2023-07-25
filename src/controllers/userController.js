@@ -1,3 +1,4 @@
+import { stripHtml } from "string-strip-html";
 import { db } from "../database/database.connection.js";
 import { getDate, getWeekday } from "../getUserDate.js";
 
@@ -41,6 +42,7 @@ async function updateCurrentHistory(email, newHabit, currentHistory, today) {
 export async function addHabit(req, res) {
     const { email, utcOffset } = res.locals.user;
     const { name, days } = req.body;
+    const sanitizedName = stripHtml(name.toString()).result.trim();
 
     try {
         const userActivities = await db.collection("userActivities").findOne(
@@ -55,7 +57,7 @@ export async function addHabit(req, res) {
         const newId =
             userActivities.habits.length === 0 ? 0 : userActivities.habits[userActivities.habits.length - 1].id + 1;
         const newHabit = {
-            name,
+            name: sanitizedName,
             days,
             id: newId,
             currentSequence: 0,

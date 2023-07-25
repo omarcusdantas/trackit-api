@@ -1,13 +1,16 @@
 import { hashSync, compareSync } from "bcrypt";
-import { db } from "../database/database.connection.js";
 import jwt from "jsonwebtoken";
+import { stripHtml } from "string-strip-html";
+import { db } from "../database/database.connection.js";
 import { getWeekday } from "../getUserDate.js";
 
 export async function signup(req, res) {
     const { name, email, password, utcOffset } = req.body;
+    const sanitizedName = stripHtml(name.toString()).result.trim();
+    const sanitizedEmail = stripHtml(email.toString()).result.trim();
 
     try {
-        const foundUser = await db.collection("users").findOne({ email });
+        const foundUser = await db.collection("users").findOne({ email: sanitizedEmail });
 
         if (foundUser) {
             return res.status(409).send("Email already registered.");
@@ -17,14 +20,14 @@ export async function signup(req, res) {
         const lastWeekday = getWeekday(utcOffset);
 
         await db.collection("users").insertOne({
-            name,
-            email,
+            name: sanitizedName,
+            email: sanitizedEmail,
             password: hash,
             utcOffset,
             lastWeekday,
         });
         await db.collection("userActivities").insertOne({
-            email,
+            email: sanitizedEmail,
             habits: [],
             history: [],
         });
