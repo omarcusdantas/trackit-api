@@ -16,7 +16,7 @@ userRouter.post("/habits", validateAuth, validateSchema(schemaHabit), addHabit);
 userRouter.get("/habits", validateAuth, getHabits);
 userRouter.delete("/habits/:id", validateAuth, deleteHabit);
 userRouter.get("/daily-habits", validateAuth, getDailyHabits);
-userRouter.put("/daily-habits/:id/:type", validateAuth, trackHabit);
+userRouter.post("/daily-habits/:id/:type", validateAuth, trackHabit);
 userRouter.get("/history", validateAuth, getHistory);
 
 export default userRouter;
