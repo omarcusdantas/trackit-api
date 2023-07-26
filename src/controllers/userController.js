@@ -20,7 +20,7 @@ async function updateCurrentHistory(email, newHabit, currentHistory, today) {
         );
         return;
     }
-    
+
     // Creates a history entry for current day
     const newHistoryEntry = {
         date: today,
@@ -50,7 +50,7 @@ export async function addHabit(req, res) {
     const sanitizedName = stripHtml(name.toString()).result.trim();
 
     try {
-        const userActivities = await db.collection("userActivities").findOne( { email } );
+        const userActivities = await db.collection("userActivities").findOne({ email });
         const newId =
             userActivities.habits.length === 0 ? 0 : userActivities.habits[userActivities.habits.length - 1].id + 1;
         const newHabit = {
@@ -59,6 +59,7 @@ export async function addHabit(req, res) {
             id: newId,
             currentSequence: 0,
             highestSequence: 0,
+            done: false,
         };
         const weekday = getWeekday(utcOffset);
 
@@ -99,7 +100,7 @@ export async function deleteHabit(req, res) {
     }
 
     try {
-        const userActivities = await db.collection("userActivities").findOne( { email } );
+        const userActivities = await db.collection("userActivities").findOne({ email });
         const habitIndex = userActivities.habits.findIndex((habit) => habit.id === id);
 
         if (habitIndex === -1) {
@@ -119,10 +120,7 @@ export async function deleteHabit(req, res) {
             if (currentHistory.habits.length === 0) {
                 await db
                     .collection("userActivities")
-                    .updateOne(
-                        { email },
-                        { $set: { habits: userActivities.habits }, $pop: { history: -1 } }
-                    );
+                    .updateOne({ email }, { $set: { habits: userActivities.habits }, $pop: { history: -1 } });
                 return res.sendStatus(204);
             }
             await db
@@ -177,28 +175,36 @@ export async function trackHabit(req, res) {
     const doneStatus = type === "check";
 
     try {
-        const userActivities = await db
-            .collection("userActivities")
-            .findOne({ email }, { projection: { history: 1 } });
+        const userActivities = await db.collection("userActivities").findOne({ email });
         const currentHistory = userActivities.history[0];
+        const userHabits = userActivities.habits;
 
         if (currentHistory?.date !== getDate(utcOffset)) {
             return res.status(404).send("No habits for today.");
         }
 
-        const habitIndex = currentHistory.habits.findIndex((habit) => habit.id === id);
+        const dailyHabitIndex = currentHistory.habits.findIndex((habit) => habit.id === id);
+        const habitIndex = userHabits.habits.findIndex((habit) => habit.id === id);
 
-        if (habitIndex === -1) {
+        if (dailyHabitIndex === -1) {
             return res.status(404).send("Habit not found for today.");
         }
 
-        if (currentHistory.habits[habitIndex].done === doneStatus) {
+        if (currentHistory.habits[dailyHabitIndex].done === doneStatus) {
             return res.status(409).send("Habit already in the desired state.");
         }
 
         await db
             .collection("userActivities")
-            .updateOne({ email }, { $set: { [`history.0.habits.${habitIndex}.done`]: doneStatus } });
+            .updateOne(
+                { email },
+                {
+                    $set: {
+                        [`history.0.habits.${dailyHabitIndex}.done`]: doneStatus,
+                        [`habits.${habitIndex}.done`]: doneStatus,
+                    },
+                }
+            );
         return res.sendStatus(200);
     } catch (error) {
         return res.status(500).send(error.message);

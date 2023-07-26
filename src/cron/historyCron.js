@@ -8,6 +8,7 @@ function updateHabits(user) {
     for (const habit of user.history[0].habits) {
         const habitIndex = habits.findIndex((habitToFind) => habitToFind.id === habit.id);
         const habitFound = habits[habitIndex];
+        habitFound.done = false;
     
         if (habit.done) {
             habitFound.currentSequence++;
