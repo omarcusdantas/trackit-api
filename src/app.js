@@ -7,10 +7,10 @@ import historyCron from "./cron/historyCron.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-// Limits each IP to 100 requests per 15 minutes.
+// Limits each IP to 200 requests per 15 minutes.
 const limiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 100,
+    max: 200,
 });
 
 // Sets app to handle requests
@@ -22,7 +22,7 @@ app.use(limiter);
 // Error if IP reaches limit
 app.use((err, req, res, next) => {
     if (err instanceof rateLimit.RateLimitExceeded) {
-      return res.status(429).json({ error: "Too many requests, please try again later." });
+      return res.status(429).json({ error: "Too many requests, please try again after 15 minutes." });
     }
 });
 
