@@ -184,7 +184,7 @@ export async function trackHabit(req, res) {
         }
 
         const dailyHabitIndex = currentHistory.habits.findIndex((habit) => habit.id === id);
-        const habitIndex = userHabits.habits.findIndex((habit) => habit.id === id);
+        const habitIndex = userHabits.findIndex((habit) => habit.id === id);
 
         if (dailyHabitIndex === -1) {
             return res.status(404).send("Habit not found for today.");
