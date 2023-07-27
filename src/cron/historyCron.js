@@ -5,10 +5,9 @@ import { getWeekday, getDate, dayTurnedOffset, getPreviousDate } from "../getUse
 function updateHabits(user) {
     const habits = [...user.habits];
 
-    for (const habit of user.history[0].habits) {
+    for (const habit of user.currentActivities.habits) {
         const habitIndex = habits.findIndex((habitToFind) => habitToFind.id === habit.id);
         const habitFound = habits[habitIndex];
-        habitFound.done = false;
     
         if (habit.done) {
             habitFound.currentSequence++;
@@ -20,32 +19,9 @@ function updateHabits(user) {
     return habits;
 }
 
-// Updates user's history
-function updateHistory(user, newWeekday, utcTarget, bulkWriteOperations) {
-    if (user.habits.length === 0) {
-        return;
-    }
-
-    // Checks if last history entry matches previous day to update habit's streak
-    const newHabits = user.history[0]?.date === getPreviousDate(utcTarget) ? updateHabits(user) : [];
-    const dailyHabits = user.habits.filter((habit) => habit.days.includes(newWeekday));
-
-    // Checks if there are any habits to do in current day
-    if (dailyHabits.length === 0) {
-        if (newHabits.length === 0) {
-            return;
-        }
-        bulkWriteOperations.push({
-            updateOne: {
-                filter: { email: user.email },
-                update: { $set: { habits: newHabits } },
-            },
-        });
-        return;
-    }
-
-    // Creates new history entry for current day if there are habits to do
-    const newHistoryEntry = {
+// Updates user's current activities
+function updateCurrentActivities (user, dailyHabits, utcTarget, newHabits, bulkWriteHabits) {
+    const newCurrent = {
         date: getDate(utcTarget),
         habits: dailyHabits.map((habit) => ({
             name: habit.name,
@@ -54,26 +30,58 @@ function updateHistory(user, newWeekday, utcTarget, bulkWriteOperations) {
         })),
     };
 
+    // Checks if there are habits to update
     if (newHabits.length === 0) {
-        bulkWriteOperations.push({
+        bulkWriteHabits.push({
             updateOne: {
                 filter: { email: user.email },
-                update: {
-                    $push: { history: { $each: [newHistoryEntry], $position: 0 } },
-                },
+                update: { $set: { currentActivities: newCurrent } },
             },
         });
         return;
     }
-    bulkWriteOperations.push({
+    bulkWriteHabits.push({
         updateOne: {
             filter: { email: user.email },
-            update: {
-                $set: { habits: newHabits },
-                $push: { history: { $each: [newHistoryEntry], $position: 0 } },
-            },
+            update: { $set: { currentActivities: newCurrent, habits: newHabits } },
         },
     });
+}
+
+// Updates user's current activities
+function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHistory) {
+    if (user.habits.length === 0) {
+        return;
+    }
+
+    let newHabits = [];
+    // Checks if current activities matches previous day to update habit's streak
+    if (user.currentActivities?.date === getPreviousDate(utcTarget)) {
+        newHabits = updateHabits(user);
+        // Updates user's history
+        bulkWriteHistory.push({
+            updateOne: {
+                filter: { email: user.email },
+                update: { $push: { history: user.currentActivities } },
+            },
+        });
+    }
+
+    const dailyHabits = user.habits.filter((habit) => habit.days.includes(newWeekday));
+    // Checks if there are any habits to do in new day
+    if (dailyHabits.length === 0) {
+        if (newHabits.length === 0) {
+            return;
+        }
+        bulkWriteHabits.push({
+            updateOne: {
+                filter: { email: user.email },
+                update: { $set: { habits: newHabits, currentActivities: {} } },
+            },
+        });
+        return;
+    }
+    updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWriteHabits);
 }
 
 // Searches for users who have utcOffset matching the first hour of the day and updates their histories
@@ -89,20 +97,23 @@ export default async function historyCron() {
         }
 
         const usersToUpdate = users.map((user) => user.email);
-        const usersActivities = await db
-            .collection("userActivities")
+        const usersHabits = await db
+            .collection("usersHabits")
             .find({ email: { $in: usersToUpdate } })
             .toArray();
         
         // Aggregates all queries for optimization
-        const bulkWriteOperations = [];
-
-        for (const user of usersActivities) {
-            updateHistory(user, newWeekday, utcTarget, bulkWriteOperations);
+        const bulkWriteHabits = [];
+        const bulkWriteHistory = [];
+        for (const user of usersHabits) {
+            updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHistory);
         }
 
-        if (bulkWriteOperations.length > 0) {
-            await db.collection("userActivities").bulkWrite(bulkWriteOperations);
+        if (bulkWriteHabits.length > 0) {
+            await db.collection("usersHabits").bulkWrite(bulkWriteHabits);
+        }
+        if (bulkWriteHistory.length > 0) {
+            await db.collection("usersHistory").bulkWrite(bulkWriteHistory);
         }
 
         await db.collection("users").updateMany({ email: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });

@@ -12,7 +12,6 @@ export async function signup(req, res) {
 
     try {
         const foundUser = await db.collection("users").findOne({ email: sanitizedEmail });
-
         if (foundUser) {
             return res.status(409).send("Email already registered.");
         }
@@ -27,9 +26,13 @@ export async function signup(req, res) {
             utcOffset,
             lastWeekday,
         });
-        await db.collection("userActivities").insertOne({
+        await db.collection("usersHabits").insertOne({
             email: sanitizedEmail,
             habits: [],
+            currentActivities: {},
+        });
+        await db.collection("usersHistory").insertOne({
+            email: sanitizedEmail,
             history: [],
         });
 
@@ -46,7 +49,6 @@ export async function signin(req, res) {
 
     try {
         const foundUser = await db.collection("users").findOne({ email });
-
         if (!foundUser) {
             return res.status(404).send("Email not registered.");
         }
