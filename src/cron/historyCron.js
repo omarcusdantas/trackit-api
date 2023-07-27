@@ -8,7 +8,7 @@ function updateHabits(user) {
     for (const habit of user.currentActivities.habits) {
         const habitIndex = habits.findIndex((habitToFind) => habitToFind.id === habit.id);
         const habitFound = habits[habitIndex];
-    
+
         if (habit.done) {
             habitFound.currentSequence++;
             habitFound.highestSequence = Math.max(habitFound.currentSequence, habitFound.highestSequence);
@@ -20,13 +20,15 @@ function updateHabits(user) {
 }
 
 // Updates user's current activities
-function updateCurrentActivities (user, dailyHabits, utcTarget, newHabits, bulkWriteHabits) {
+function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWriteHabits) {
     const newCurrent = {
         date: getDate(utcTarget),
         habits: dailyHabits.map((habit) => ({
             name: habit.name,
             done: false,
             id: habit.id,
+            highestSequence: habit.highestSequence,
+            currentSequence: habit.currentSequence,
         })),
     };
 
@@ -48,6 +50,12 @@ function updateCurrentActivities (user, dailyHabits, utcTarget, newHabits, bulkW
     });
 }
 
+// Removes properties "highestSequence" and "currentSequence" from each habit to set history
+function removeSequenceProperties(habit) {
+    const { highestSequence, currentSequence, ...rest } = habit;
+    return rest;
+}
+
 // Updates user's current activities
 function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHistory) {
     if (user.habits.length === 0) {
@@ -59,10 +67,14 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
     if (user.currentActivities?.date === getPreviousDate(utcTarget)) {
         newHabits = updateHabits(user);
         // Updates user's history
+        const newHistoryEntry = {
+            date: user.currentActivities.date,
+            habits: user.currentActivities.habits.map(removeSequenceProperties),
+        };
         bulkWriteHistory.push({
             updateOne: {
                 filter: { email: user.email },
-                update: { $push: { history: user.currentActivities } },
+                update: { $push: { history: newHistoryEntry } },
             },
         });
     }
@@ -101,7 +113,7 @@ export default async function historyCron() {
             .collection("usersHabits")
             .find({ email: { $in: usersToUpdate } })
             .toArray();
-        
+
         // Aggregates all queries for optimization
         const bulkWriteHabits = [];
         const bulkWriteHistory = [];
@@ -116,7 +128,9 @@ export default async function historyCron() {
             await db.collection("usersHistory").bulkWrite(bulkWriteHistory);
         }
 
-        await db.collection("users").updateMany({ email: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
+        await db
+            .collection("users")
+            .updateMany({ email: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
         console.log("History updated!");
     } catch (error) {
         console.log(error);

@@ -10,6 +10,8 @@ async function updatecurrentActivities(email, newHabit, currentActivities, curre
             name: newHabit.name,
             done: false,
             id: newHabit.id,
+            highestSequence: 0,
+            currentSequence: 0,
         });
         await db.collection("usersHabits").updateOne(
             { email },
@@ -29,6 +31,8 @@ async function updatecurrentActivities(email, newHabit, currentActivities, curre
                 name: newHabit.name,
                 done: false,
                 id: newHabit.id,
+                highestSequence: 0,
+                currentSequence: 0,
             },
         ],
     };
