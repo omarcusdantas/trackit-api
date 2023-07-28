@@ -13,7 +13,7 @@ export async function signup(req, res) {
     try {
         const foundUser = await db.collection("users").findOne({ email: sanitizedEmail });
         if (foundUser) {
-            return res.status(409).send("Email already registered.");
+            return res.status(409).send("Email already registered");
         }
 
         const hash = hashSync(password, 10);
@@ -50,7 +50,7 @@ export async function signin(req, res) {
     try {
         const foundUser = await db.collection("users").findOne({ email });
         if (!foundUser) {
-            return res.status(404).send("Email not registered.");
+            return res.status(404).send("Email not registered");
         }
 
         if (compareSync(password, foundUser.password)) {
@@ -59,7 +59,7 @@ export async function signin(req, res) {
             });
             return res.status(200).send({ name: foundUser.name, token });
         }
-        return res.status(401).send("Wrong password.");
+        return res.status(401).send("Wrong password");
     } catch (error) {
         return res.status(500).send(error.message);
     }

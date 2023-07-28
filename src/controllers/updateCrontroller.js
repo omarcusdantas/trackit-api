@@ -57,7 +57,7 @@ function removeSequenceProperties(habit) {
 }
 
 // Updates user's history
-function updateHistory(user) {
+function updateHistory(user, bulkWriteHistory) {
     const newHistoryEntry = {
         date: user.currentActivities.date,
         habits: user.currentActivities.habits.map(removeSequenceProperties),
@@ -80,7 +80,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
     // Checks if current activities matches previous day to update habit's streak
     if (user.currentActivities?.date === getPreviousDate(utcTarget)) {
         newHabits = updateHabits(user);
-        updateHistory(user);
+        updateHistory(user, bulkWriteHistory);
     }
 
     const dailyHabits = user.habits.filter((habit) => habit.days.includes(newWeekday));
@@ -101,7 +101,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
 }
 
 // Searches for users who have utcOffset matching the first hour of the day and updates their data
-export default async function updateCron() {
+export async function updateUsers(req, res) {
     try {
         const utcTarget = dayTurnedOffset();
         const users = await db.collection("users").find({ utcOffset: utcTarget }).toArray();
@@ -109,7 +109,7 @@ export default async function updateCron() {
 
         if (users.length === 0) {
             console.log("No user to update!");
-            return;
+            return res.sendStatus(200);
         }
 
         const usersToUpdate = users.map((user) => user.email);
@@ -136,7 +136,8 @@ export default async function updateCron() {
             .collection("users")
             .updateMany({ email: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
         console.log("History updated!");
+        return res.sendStatus(200);
     } catch (error) {
-        console.log(error);
+        return res.status(500).send(error.message);
     }
 }

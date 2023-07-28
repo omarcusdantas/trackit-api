@@ -1,10 +1,8 @@
 import express from "express";
 import cors from "cors";
-import cron from "node-cron";
 import { MongoClient } from "mongodb";
 import { rateLimit } from "express-rate-limit";
 import router from "./routes/index.routes.js";
-import updateCron from "./cron/updateCron.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -35,9 +33,6 @@ try {
             return res.status(429).send("Too many requests, please try again after 15 minutes");
         }
     });
-
-    // Sets cron job to update user's history and habits once an hour
-    cron.schedule("0 * * * *", updateCron);
 
     // Starts API
     const PORT = process.env.PORT || 5000;
