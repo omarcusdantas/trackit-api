@@ -1,4 +1,4 @@
-import { db } from "../database/database.connection.js";
+import { db } from "../app.js";
 import { getWeekday, getDate, dayTurnedOffset, getPreviousDate } from "../getUserDate.js";
 
 // Updates habit's streak
@@ -56,6 +56,20 @@ function removeSequenceProperties(habit) {
     return rest;
 }
 
+// Updates user's history
+function updateHistory(user) {
+    const newHistoryEntry = {
+        date: user.currentActivities.date,
+        habits: user.currentActivities.habits.map(removeSequenceProperties),
+    };
+    bulkWriteHistory.push({
+        updateOne: {
+            filter: { email: user.email },
+            update: { $push: { history: newHistoryEntry } },
+        },
+    });
+}
+
 // Updates user's current activities
 function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHistory) {
     if (user.habits.length === 0) {
@@ -66,17 +80,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
     // Checks if current activities matches previous day to update habit's streak
     if (user.currentActivities?.date === getPreviousDate(utcTarget)) {
         newHabits = updateHabits(user);
-        // Updates user's history
-        const newHistoryEntry = {
-            date: user.currentActivities.date,
-            habits: user.currentActivities.habits.map(removeSequenceProperties),
-        };
-        bulkWriteHistory.push({
-            updateOne: {
-                filter: { email: user.email },
-                update: { $push: { history: newHistoryEntry } },
-            },
-        });
+        updateHistory(user);
     }
 
     const dailyHabits = user.habits.filter((habit) => habit.days.includes(newWeekday));
@@ -96,8 +100,8 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
     updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWriteHabits);
 }
 
-// Searches for users who have utcOffset matching the first hour of the day and updates their histories
-export default async function historyCron() {
+// Searches for users who have utcOffset matching the first hour of the day and updates their data
+export default async function updateCron() {
     try {
         const utcTarget = dayTurnedOffset();
         const users = await db.collection("users").find({ utcOffset: utcTarget }).toArray();

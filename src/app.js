@@ -1,34 +1,47 @@
 import express from "express";
 import cors from "cors";
 import cron from "node-cron";
+import { MongoClient } from "mongodb";
 import { rateLimit } from "express-rate-limit";
 import router from "./routes/index.routes.js";
-import historyCron from "./cron/historyCron.js";
+import updateCron from "./cron/updateCron.js";
 import dotenv from "dotenv";
 dotenv.config();
 
-// Limits each IP to 200 requests per 15 minutes
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 200,
-});
+const mongoClient = new MongoClient(process.env.DATABASE_URL);
+export let db;
 
-// Sets app to handle requests
-const app = express();
-app.use(cors());
-app.use(express.json());
-app.use(router);
-app.use(limiter);
-// Error if IP reaches limit of requests
-app.use((err, req, res, next) => {
-    if (err instanceof rateLimit.RateLimitExceeded) {
-      return res.status(429).json({ error: "Too many requests, please try again after 15 minutes." });
-    }
-});
+// As Cyclic is a serveless host, the connection with MongoDB needs to be stablished before app.listen is called
+try {
+    await mongoClient.connect();
+    console.log("MongoDB Connected!");
+    db = mongoClient.db();
 
-// Sets cron job to handle users' history once an hour
-cron.schedule("0 * * * *", historyCron);
+    // Limits each IP to 200 requests per 15 minutes
+    const limiter = rateLimit({
+        windowMs: 15 * 60 * 1000,
+        max: 200,
+    });
 
-// Starts API
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Running server on port ${PORT}`));
+    // Sets app to handle requests
+    const app = express();
+    app.use(cors());
+    app.use(express.json());
+    app.use(router);
+    app.use(limiter);
+    // Error if IP reaches limit of requests
+    app.use((err, req, res, next) => {
+        if (err instanceof rateLimit.RateLimitExceeded) {
+            return res.status(429).send("Too many requests, please try again after 15 minutes");
+        }
+    });
+
+    // Sets cron job to update user's history and habits once an hour
+    cron.schedule("0 * * * *", updateCron);
+
+    // Starts API
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => console.log(`Running server on port ${PORT}`));
+} catch (error) {
+    console.log("Error connecting to MongoDB:", error.message);
+}

@@ -1,7 +1,7 @@
 import { hashSync, compareSync } from "bcrypt";
 import jwt from "jsonwebtoken";
 import { stripHtml } from "string-strip-html";
-import { db } from "../database/database.connection.js";
+import { db } from "../app.js";
 import { getWeekday } from "../getUserDate.js";
 
 // Creates new user on database

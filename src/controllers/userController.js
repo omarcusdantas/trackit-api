@@ -1,5 +1,5 @@
 import { stripHtml } from "string-strip-html";
-import { db } from "../database/database.connection.js";
+import { db } from "../app.js";
 import { getDate, getWeekday } from "../getUserDate.js";
 
 // Updates current activities if new habit affects its habits
