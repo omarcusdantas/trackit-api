@@ -50,18 +50,18 @@ function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWr
     });
 }
 
-// Removes properties "highestSequence" and "currentSequence" from each habit to set history
-function removeSequenceProperties(habit) {
-    const { highestSequence, currentSequence, ...rest } = habit;
-    return rest;
-}
-
 // Updates user's history
 function updateHistory(user, bulkWriteHistory) {
     const newHistoryEntry = {
         date: user.currentActivities.date,
-        habits: user.currentActivities.habits.map(removeSequenceProperties),
+        habits: user.currentActivities.habits.map(habit => {
+            const habitCopy = { ...habit };
+            delete habitCopy.highestSequence;
+            delete habitCopy.currentSequence;
+            return habitCopy;
+        }),
     };
+
     bulkWriteHistory.push({
         updateOne: {
             filter: { email: user.email },

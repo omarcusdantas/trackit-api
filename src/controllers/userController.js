@@ -187,10 +187,16 @@ export async function trackHabit(req, res) {
             return res.status(404).send("Habit not found");
         }
 
-        if (currentActivities.habits[dailyHabitIndex].done === doneStatus) {
+        const updatedHabit = currentActivities.habits[dailyHabitIndex];
+        if (updatedHabit.done === doneStatus) {
             return res.status(409).send("Habit already in the desired state");
         }
-        currentActivities.habits[dailyHabitIndex].done = doneStatus;
+
+        updatedHabit.done = doneStatus;
+        if (doneStatus === true) {
+            updatedHabit.currentSequence++;
+            updatedHabit.highestSequence = Math.max(updatedHabit.currentSequence, updatedHabit.highestSequence);
+        }
 
         await db
             .collection("usersHabits")
