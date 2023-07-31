@@ -193,10 +193,8 @@ export async function trackHabit(req, res) {
         }
 
         updatedHabit.done = doneStatus;
-        if (doneStatus === true) {
-            updatedHabit.currentSequence++;
-            updatedHabit.highestSequence = Math.max(updatedHabit.currentSequence, updatedHabit.highestSequence);
-        }
+        doneStatus === true? updatedHabit.currentSequence++ : updatedHabit.currentSequence--;
+        updatedHabit.highestSequence = Math.max(updatedHabit.currentSequence, updatedHabit.highestSequence)
 
         await db
             .collection("usersHabits")
