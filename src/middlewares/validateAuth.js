@@ -11,7 +11,7 @@ export async function validateAuth(req, res, next) {
     try {
         const data = jwt.verify(token, process.env.JWT_SECRET);
         res.locals.user = {
-            email: data.email,
+            userId: data.userId,
             utcOffset: data.utcOffset,
         };
         next();

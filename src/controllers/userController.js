@@ -1,9 +1,10 @@
 import { stripHtml } from "string-strip-html";
 import { db } from "../app.js";
 import { getDate, getWeekday } from "../getUserDate.js";
+import { ObjectId } from "mongodb";
 
 // Updates current activities if new habit affects its habits
-async function updatecurrentActivities(email, newHabit, currentActivities, currentDay) {
+async function updatecurrentActivities(userId, newHabit, currentActivities, currentDay) {
     // Inserts into current activities' habits
     if (currentActivities?.date === currentDay) {
         currentActivities.habits.push({
@@ -14,7 +15,7 @@ async function updatecurrentActivities(email, newHabit, currentActivities, curre
             currentSequence: 0,
         });
         await db.collection("usersHabits").updateOne(
-            { email },
+            { userId: new ObjectId(userId) },
             {
                 $push: { habits: newHabit },
                 $set: { currentActivities: currentActivities },
@@ -37,7 +38,7 @@ async function updatecurrentActivities(email, newHabit, currentActivities, curre
         ],
     };
     await db.collection("usersHabits").updateOne(
-        { email },
+        { userId: new ObjectId(userId) },
         {
             $push: { habits: newHabit },
             $set: { currentActivities: newCurrent },
@@ -47,15 +48,14 @@ async function updatecurrentActivities(email, newHabit, currentActivities, curre
 
 // Adds new habit
 export async function addHabit(req, res) {
-    const { email, utcOffset } = res.locals.user;
+    const { userId, utcOffset } = res.locals.user;
     const { name, days } = req.body;
     const sanitizedName = stripHtml(name.toString()).result.trim();
 
     try {
-        const userHabits = await db.collection("usersHabits").findOne({ email });
-        const { habits, currentActivities } = userHabits
-        const newId =
-            habits.length === 0 ? 0 : habits[habits.length - 1].id + 1;
+        const userHabits = await db.collection("usersHabits").findOne({ userId: new ObjectId(userId) });
+        const { habits, currentActivities } = userHabits;
+        const newId = habits.length === 0 ? 0 : habits[habits.length - 1].id + 1;
         const newHabit = {
             name: sanitizedName,
             days,
@@ -68,11 +68,11 @@ export async function addHabit(req, res) {
         // Checks if new habit affects current activities
         if (days.includes(weekday)) {
             const currentDay = getDate(utcOffset);
-            await updatecurrentActivities(email, newHabit, currentActivities, currentDay);
+            await updatecurrentActivities(userId, newHabit, currentActivities, currentDay);
             return res.sendStatus(201);
         }
 
-        await db.collection("usersHabits").updateOne({ email }, { $push: { habits: newHabit } });
+        await db.collection("usersHabits").updateOne({ userId: new ObjectId(userId) }, { $push: { habits: newHabit } });
         return res.sendStatus(201);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -81,10 +81,13 @@ export async function addHabit(req, res) {
 
 // Gets list of user's habits
 export async function getHabits(req, res) {
-    const { email } = res.locals.user;
+    const { userId } = res.locals.user;
 
     try {
-        const userHabits = await db.collection("usersHabits").findOne({ email }, { projection: { habits: 1 } });
+        const userHabits = await db
+            .collection("usersHabits")
+            .findOne({ userId: new ObjectId(userId) }, { projection: { habits: 1 } });
+        console.log(userHabits);
         return res.send(userHabits.habits);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -94,14 +97,14 @@ export async function getHabits(req, res) {
 // Deletes a habit by id
 export async function deleteHabit(req, res) {
     const id = parseInt(req.params.id);
-    const { email, utcOffset } = res.locals.user;
+    const { userId, utcOffset } = res.locals.user;
 
     if (isNaN(id)) {
         return res.status(400).send("Insert a valid id");
     }
 
     try {
-        const userHabits = await db.collection("usersHabits").findOne({ email });
+        const userHabits = await db.collection("usersHabits").findOne({ userId: new ObjectId(userId) });
         const { habits, currentActivities } = userHabits;
 
         const habitIndex = habits.findIndex((habit) => habit.id === id);
@@ -120,16 +123,19 @@ export async function deleteHabit(req, res) {
             if (currentActivities.habits.length === 0) {
                 await db
                     .collection("usersHabits")
-                    .updateOne({ email }, { $set: { habits: habits, currentActivities: {} }});
+                    .updateOne({ userId: new ObjectId(userId) }, { $set: { habits: habits, currentActivities: {} } });
                 return res.sendStatus(204);
             }
             await db
                 .collection("usersHabits")
-                .updateOne({ email }, { $set: { habits: habits, currentActivities: currentActivities } });
+                .updateOne(
+                    { userId: new ObjectId(userId) },
+                    { $set: { habits: habits, currentActivities: currentActivities } }
+                );
             return res.sendStatus(204);
         }
 
-        await db.collection("usersHabits").updateOne({ email }, { $set: { habits: habits } });
+        await db.collection("usersHabits").updateOne({ userId: new ObjectId(userId) }, { $set: { habits: habits } });
         return res.sendStatus(204);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -138,13 +144,15 @@ export async function deleteHabit(req, res) {
 
 // Gets user's habits for current day
 export async function getDailyHabits(req, res) {
-    const { email, utcOffset } = res.locals.user;
+    const { userId, utcOffset } = res.locals.user;
 
     try {
-        const userHabits = await db.collection("usersHabits").findOne({ email }, { projection: { currentActivities: 1 } });
+        const userHabits = await db
+            .collection("usersHabits")
+            .findOne({ userId: new ObjectId(userId) }, { projection: { currentActivities: 1 } });
         const { currentActivities } = userHabits;
         const currentDate = getDate(utcOffset);
-        const dailyHabits = currentActivities?.date === currentDate? currentActivities.habits : [];
+        const dailyHabits = currentActivities?.date === currentDate ? currentActivities.habits : [];
         return res.send(dailyHabits);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -153,10 +161,10 @@ export async function getDailyHabits(req, res) {
 
 // Gets user's history
 export async function getHistory(req, res) {
-    const { email } = res.locals.user;
+    const { userId } = res.locals.user;
 
     try {
-        const userHistory = await db.collection("usersHistory").findOne({ email });
+        const userHistory = await db.collection("usersHistory").findOne({ userId: new ObjectId(userId) });
         const recentHistory = userHistory.history.reverse();
         return res.send(recentHistory);
     } catch (error) {
@@ -166,7 +174,7 @@ export async function getHistory(req, res) {
 
 // Marks the daily habit as done or undone
 export async function trackHabit(req, res) {
-    const { email, utcOffset } = res.locals.user;
+    const { userId, utcOffset } = res.locals.user;
     const type = req.params.type;
     const id = parseInt(req.params.id);
 
@@ -176,7 +184,7 @@ export async function trackHabit(req, res) {
 
     const doneStatus = type === "check";
     try {
-        const userHabits = await db.collection("usersHabits").findOne({ email });
+        const userHabits = await db.collection("usersHabits").findOne({ userId: new ObjectId(userId) });
         const { currentActivities } = userHabits;
         if (currentActivities?.date !== getDate(utcOffset)) {
             return res.status(404).send("No habits for today");
@@ -193,15 +201,12 @@ export async function trackHabit(req, res) {
         }
 
         updatedHabit.done = doneStatus;
-        doneStatus === true? updatedHabit.currentSequence++ : updatedHabit.currentSequence--;
-        updatedHabit.highestSequence = Math.max(updatedHabit.currentSequence, updatedHabit.highestSequence)
+        doneStatus === true ? updatedHabit.currentSequence++ : updatedHabit.currentSequence--;
+        updatedHabit.highestSequence = Math.max(updatedHabit.currentSequence, updatedHabit.highestSequence);
 
         await db
             .collection("usersHabits")
-            .updateOne(
-                { email },
-                { $set: { currentActivities: currentActivities } }
-            );
+            .updateOne({ userId: new ObjectId(userId) }, { $set: { currentActivities: currentActivities } });
         return res.sendStatus(200);
     } catch (error) {
         return res.status(500).send(error.message);

@@ -1,5 +1,6 @@
 import { db } from "../app.js";
 import { getWeekday, getDate, dayTurnedOffset, getPreviousDate } from "../getUserDate.js";
+import { ObjectId } from "mongodb";
 
 // Updates habit's streak
 function updateHabits(user) {
@@ -36,7 +37,7 @@ function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWr
     if (newHabits.length === 0) {
         bulkWriteHabits.push({
             updateOne: {
-                filter: { email: user.email },
+                filter: { userId: new ObjectId(user.userId) },
                 update: { $set: { currentActivities: newCurrent } },
             },
         });
@@ -44,7 +45,7 @@ function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWr
     }
     bulkWriteHabits.push({
         updateOne: {
-            filter: { email: user.email },
+            filter: { userId: new ObjectId(user.userId) },
             update: { $set: { currentActivities: newCurrent, habits: newHabits } },
         },
     });
@@ -54,7 +55,7 @@ function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWr
 function updateHistory(user, bulkWriteHistory) {
     const newHistoryEntry = {
         date: user.currentActivities.date,
-        habits: user.currentActivities.habits.map(habit => {
+        habits: user.currentActivities.habits.map((habit) => {
             const habitCopy = { ...habit };
             delete habitCopy.highestSequence;
             delete habitCopy.currentSequence;
@@ -64,7 +65,7 @@ function updateHistory(user, bulkWriteHistory) {
 
     bulkWriteHistory.push({
         updateOne: {
-            filter: { email: user.email },
+            filter: { userId: new ObjectId(user.userId) },
             update: { $push: { history: newHistoryEntry } },
         },
     });
@@ -91,7 +92,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
         }
         bulkWriteHabits.push({
             updateOne: {
-                filter: { email: user.email },
+                filter: { userId: new ObjectId(user.userId) },
                 update: { $set: { habits: newHabits, currentActivities: {} } },
             },
         });
@@ -112,10 +113,10 @@ export async function updateUsers(req, res) {
             return res.sendStatus(200);
         }
 
-        const usersToUpdate = users.map((user) => user.email);
+        const usersToUpdate = users.map((user) => user._id);
         const usersHabits = await db
             .collection("usersHabits")
-            .find({ email: { $in: usersToUpdate } })
+            .find({ userId: { $in: usersToUpdate } })
             .toArray();
 
         // Aggregates all queries for optimization
@@ -132,9 +133,10 @@ export async function updateUsers(req, res) {
             await db.collection("usersHistory").bulkWrite(bulkWriteHistory);
         }
 
-        await db
-            .collection("users")
-            .updateMany({ email: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
+        console.log(usersToUpdate);
+        console.log(usersHabits);
+
+        await db.collection("users").updateMany({ _id: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
         console.log("History updated!");
         return res.sendStatus(200);
     } catch (error) {

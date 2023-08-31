@@ -19,20 +19,22 @@ export async function signup(req, res) {
         const hash = hashSync(password, 10);
         const lastWeekday = getWeekday(utcOffset);
 
-        await db.collection("users").insertOne({
+        const newUser = await db.collection("users").insertOne({
             name: sanitizedName,
             email: sanitizedEmail,
             password: hash,
             utcOffset,
             lastWeekday,
         });
+
+        const userId = newUser.insertedId;
         await db.collection("usersHabits").insertOne({
-            email: sanitizedEmail,
+            userId: userId,
             habits: [],
             currentActivities: {},
         });
         await db.collection("usersHistory").insertOne({
-            email: sanitizedEmail,
+            userId: userId,
             history: [],
         });
 
@@ -42,7 +44,7 @@ export async function signup(req, res) {
     }
 }
 
-// Generates jwt if user's sigin info matches with database 
+// Generates jwt if user's sigin info matches with database
 export async function signin(req, res) {
     const tokenExpirationSeconds = 60 * 60 * 24 * 30;
     const { email, password } = req.body;
@@ -54,7 +56,7 @@ export async function signin(req, res) {
         }
 
         if (compareSync(password, foundUser.password)) {
-            const token = jwt.sign({ email, utcOffset: foundUser.utcOffset }, process.env.JWT_SECRET, {
+            const token = jwt.sign({ userId: foundUser._id, utcOffset: foundUser.utcOffset }, process.env.JWT_SECRET, {
                 expiresIn: tokenExpirationSeconds,
             });
             return res.status(200).send({ name: foundUser.name, token });
