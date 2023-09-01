@@ -2,7 +2,7 @@
     "name": "trackit-api",
     "type": "module",
     "version": "1.0.0",
-    "description": "An API developed with Express and MongoDB for Trackit. Handles users' habits and informations.",
+    "description": "An API developed with Express and MongoDB for Trackit. Handles users' accounts, with habits, habit tracking and history.",
     "main": "./src/app.js",
     "scripts": {
         "start": "node ./src/app.js",

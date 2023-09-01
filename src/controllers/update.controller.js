@@ -1,6 +1,11 @@
-import { db } from "../app.js";
 import { getWeekday, getDate, dayTurnedOffset, getPreviousDate } from "../getUserDate.js";
-import { ObjectId } from "mongodb";
+import {
+    updateQuery,
+    getUsersByUtcOffset,
+    getUsersHabits,
+    executeBulkWrite,
+    updateUsersWeekday,
+} from "../repositories/update.repository.js";
 
 // Updates habit's streak
 function updateHabits(user) {
@@ -35,20 +40,10 @@ function updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWr
 
     // Checks if there are habits to update
     if (newHabits.length === 0) {
-        bulkWriteHabits.push({
-            updateOne: {
-                filter: { userId: new ObjectId(user.userId) },
-                update: { $set: { currentActivities: newCurrent } },
-            },
-        });
+        bulkWriteHabits.push(updateQuery(user.userId, { currentActivities: newCurrent }));
         return;
     }
-    bulkWriteHabits.push({
-        updateOne: {
-            filter: { userId: new ObjectId(user.userId) },
-            update: { $set: { currentActivities: newCurrent, habits: newHabits } },
-        },
-    });
+    bulkWriteHabits.push(updateQuery(user.userId, { currentActivities: newCurrent, habits: newHabits }));
 }
 
 // Updates user's history
@@ -63,12 +58,7 @@ function updateHistory(user, bulkWriteHistory) {
         }),
     };
 
-    bulkWriteHistory.push({
-        updateOne: {
-            filter: { userId: new ObjectId(user.userId) },
-            update: { $push: { history: newHistoryEntry } },
-        },
-    });
+    bulkWriteHistory.push(updateQuery(user.userId, { history: newHistoryEntry }));
 }
 
 // Updates user's current activities
@@ -90,12 +80,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
         if (newHabits.length === 0) {
             return;
         }
-        bulkWriteHabits.push({
-            updateOne: {
-                filter: { userId: new ObjectId(user.userId) },
-                update: { $set: { habits: newHabits, currentActivities: {} } },
-            },
-        });
+        bulkWriteHabits.push(updateQuery(user.userId, { habits: newHabits }));
         return;
     }
     updateCurrentActivities(user, dailyHabits, utcTarget, newHabits, bulkWriteHabits);
@@ -105,7 +90,7 @@ function updateUser(user, newWeekday, utcTarget, bulkWriteHabits, bulkWriteHisto
 export async function updateUsers(req, res) {
     try {
         const utcTarget = dayTurnedOffset();
-        const users = await db.collection("users").find({ utcOffset: utcTarget }).toArray();
+        const users = await getUsersByUtcOffset(utcTarget);
         const newWeekday = getWeekday(utcTarget);
 
         if (users.length === 0) {
@@ -114,10 +99,7 @@ export async function updateUsers(req, res) {
         }
 
         const usersToUpdate = users.map((user) => user._id);
-        const usersHabits = await db
-            .collection("usersHabits")
-            .find({ userId: { $in: usersToUpdate } })
-            .toArray();
+        const usersHabits = await getUsersHabits(usersToUpdate);
 
         // Aggregates all queries for optimization
         const bulkWriteHabits = [];
@@ -127,16 +109,13 @@ export async function updateUsers(req, res) {
         }
 
         if (bulkWriteHabits.length > 0) {
-            await db.collection("usersHabits").bulkWrite(bulkWriteHabits);
+            await executeBulkWrite("usersHabits", bulkWriteHabits);
         }
         if (bulkWriteHistory.length > 0) {
-            await db.collection("usersHistory").bulkWrite(bulkWriteHistory);
+            await executeBulkWrite("usersHistory", bulkWriteHistory);
         }
 
-        console.log(usersToUpdate);
-        console.log(usersHabits);
-
-        await db.collection("users").updateMany({ _id: { $in: usersToUpdate } }, { $set: { lastWeekday: newWeekday } });
+        await updateUsersWeekday(usersToUpdate, newWeekday);
         console.log("History updated!");
         return res.sendStatus(200);
     } catch (error) {

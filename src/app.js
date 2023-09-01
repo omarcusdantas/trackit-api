@@ -9,7 +9,7 @@ dotenv.config();
 const mongoClient = new MongoClient(process.env.DATABASE_URL);
 export let db;
 
-// As Cyclic is a serveless host, the connection with MongoDB needs to be stablished before app.listen is called
+// Cyclic requires that the connection with MongoDB is stablished before app.listen is called
 try {
     await mongoClient.connect();
     console.log("MongoDB Connected!");

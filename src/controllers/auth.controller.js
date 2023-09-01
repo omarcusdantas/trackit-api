@@ -1,8 +1,8 @@
 import { hashSync, compareSync } from "bcrypt";
 import jwt from "jsonwebtoken";
 import { stripHtml } from "string-strip-html";
-import { db } from "../app.js";
 import { getWeekday } from "../getUserDate.js";
+import { getUserByEmail, insertNewUser } from "../repositories/auth.repository.js";
 
 // Creates new user on database
 export async function signup(req, res) {
@@ -11,7 +11,7 @@ export async function signup(req, res) {
     const sanitizedEmail = stripHtml(email.toString()).result.trim();
 
     try {
-        const foundUser = await db.collection("users").findOne({ email: sanitizedEmail });
+        const foundUser = await getUserByEmail(sanitizedEmail);
         if (foundUser) {
             return res.status(409).send("Email already registered");
         }
@@ -19,25 +19,13 @@ export async function signup(req, res) {
         const hash = hashSync(password, 10);
         const lastWeekday = getWeekday(utcOffset);
 
-        const newUser = await db.collection("users").insertOne({
+        await insertNewUser({
             name: sanitizedName,
             email: sanitizedEmail,
             password: hash,
             utcOffset,
             lastWeekday,
         });
-
-        const userId = newUser.insertedId;
-        await db.collection("usersHabits").insertOne({
-            userId: userId,
-            habits: [],
-            currentActivities: {},
-        });
-        await db.collection("usersHistory").insertOne({
-            userId: userId,
-            history: [],
-        });
-
         return res.sendStatus(201);
     } catch (error) {
         return res.status(500).send(error.message);
@@ -50,7 +38,7 @@ export async function signin(req, res) {
     const { email, password } = req.body;
 
     try {
-        const foundUser = await db.collection("users").findOne({ email });
+        const foundUser = await getUserByEmail(email);
         if (!foundUser) {
             return res.status(404).send("Email not registered");
         }
