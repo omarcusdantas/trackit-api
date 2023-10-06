@@ -1,7 +1,9 @@
 import express from "express";
+import "express-async-errors";
 import cors from "cors";
 import { MongoClient } from "mongodb";
 import { rateLimit } from "express-rate-limit";
+import errorHandler from "./middlewares/errorHandler.js";
 import router from "./routes/index.routes.js";
 import dotenv from "dotenv";
 dotenv.config();
@@ -15,26 +17,30 @@ try {
     console.log("MongoDB Connected!");
     db = mongoClient.db();
 
-    // Limits each IP to 200 requests per 15 minutes
+    const maxRequestsPerWindow = 200;
+    const windowMinutes = 15;
+    const minutesToMs = 60 * 1000;
     const limiter = rateLimit({
-        windowMs: 15 * 60 * 1000,
-        max: 200,
+        windowMs: windowMinutes * minutesToMs,
+        max: maxRequestsPerWindow,
     });
 
-    // Sets app to handle requests
     const app = express();
     app.use(cors());
     app.use(express.json());
     app.use(router);
+    app.use(errorHandler);
+
     app.use(limiter);
-    // Error if IP reaches limit of requests
     app.use((err, req, res, next) => {
         if (err instanceof rateLimit.RateLimitExceeded) {
-            return res.status(429).send("Too many requests, please try again after 15 minutes");
+            throw {
+                type: "rateLimit",
+                message: `Too many requests. Please try again after ${windowMinutes} minutes`,
+            };
         }
     });
 
-    // Starts API
     const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`Running server on port ${PORT}`));
 } catch (error) {

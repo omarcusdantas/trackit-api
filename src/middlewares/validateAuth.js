@@ -1,11 +1,11 @@
 import jwt from "jsonwebtoken";
 
-export async function validateAuth(req, res, next) {
+export default async function validateAuth(req, res, next) {
     const { authorization } = req.headers;
     const token = authorization?.replace("Bearer ", "");
 
     if (!token) {
-        return res.sendStatus(401);
+        throw { type: "unauthorized", message: "No token provided" };
     }
 
     try {
@@ -16,6 +16,6 @@ export async function validateAuth(req, res, next) {
         };
         next();
     } catch (error) {
-        return res.sendStatus(401);
+        throw { type: "unauthorized", message: "Invalid token" };
     }
 }

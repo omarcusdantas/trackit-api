@@ -1,14 +1,12 @@
-import { getHistoryByUserId } from "../repositories/history.repository.js";
+import historyService from "../services/history.service.js";
 
-// Gets user's history
-export async function getHistory(req, res) {
+async function get(req, res) {
     const { userId } = res.locals.user;
-
-    try {
-        const userHistory = await getHistoryByUserId(userId);
-        const recentHistory = userHistory.history.reverse();
-        return res.send(recentHistory);
-    } catch (error) {
-        return res.status(500).send(error.message);
-    }
+    const userRecentHistory = await historyService.getByUserId(userId);
+    return res.status(httpStatus.OK).send(userRecentHistory);
 }
+
+const historyController = {
+    get,
+};
+export default historyController;

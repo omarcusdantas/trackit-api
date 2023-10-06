@@ -1,56 +1,20 @@
-import { hashSync, compareSync } from "bcrypt";
-import jwt from "jsonwebtoken";
-import { stripHtml } from "string-strip-html";
-import { getWeekday } from "../getUserDate.js";
-import { getUserByEmail, insertNewUser } from "../repositories/auth.repository.js";
+import httpStatus from "http-status";
+import authService from "../services/auth.service.js";
 
-// Creates new user on database
-export async function signup(req, res) {
+async function signup(req, res) {
     const { name, email, password, utcOffset } = req.body;
-    const sanitizedName = stripHtml(name.toString()).result.trim();
-    const sanitizedEmail = stripHtml(email.toString()).result.trim();
-
-    try {
-        const foundUser = await getUserByEmail(sanitizedEmail);
-        if (foundUser) {
-            return res.status(409).send("Email already registered");
-        }
-
-        const hash = hashSync(password, 10);
-        const lastWeekday = getWeekday(utcOffset);
-
-        await insertNewUser({
-            name: sanitizedName,
-            email: sanitizedEmail,
-            password: hash,
-            utcOffset,
-            lastWeekday,
-        });
-        return res.sendStatus(201);
-    } catch (error) {
-        return res.status(500).send(error.message);
-    }
+    await authService.create(name, email, password, utcOffset);
+    res.sendStatus(httpStatus.CREATED);
 }
 
-// Generates jwt if user's sigin info matches with database
-export async function signin(req, res) {
-    const tokenExpirationSeconds = 60 * 60 * 24 * 30;
+async function signin(req, res) {
     const { email, password } = req.body;
-
-    try {
-        const foundUser = await getUserByEmail(email);
-        if (!foundUser) {
-            return res.status(404).send("Email not registered");
-        }
-
-        if (compareSync(password, foundUser.password)) {
-            const token = jwt.sign({ userId: foundUser._id, utcOffset: foundUser.utcOffset }, process.env.JWT_SECRET, {
-                expiresIn: tokenExpirationSeconds,
-            });
-            return res.status(200).send({ name: foundUser.name, token });
-        }
-        return res.status(401).send("Wrong password");
-    } catch (error) {
-        return res.status(500).send(error.message);
-    }
+    const token = await authService.generateToken(email, password);
+    res.status(httpStatus.OK).send(token);
 }
+
+const authController = {
+    signup,
+    signin,
+};
+export default authController;

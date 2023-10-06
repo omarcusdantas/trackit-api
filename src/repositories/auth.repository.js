@@ -1,12 +1,10 @@
 import { db } from "../app.js";
 
-// Searches users by email
-export async function getUserByEmail(email) {
-    return await db.collection("users").findOne({ email });
+async function getByEmail(email) {
+    return db.collection("users").findOne({ email });
 }
 
-// Creates new user
-export async function insertNewUser(user) {
+async function create(user) {
     const newUser = await db.collection("users").insertOne(user);
     const userId = newUser.insertedId;
 
@@ -20,3 +18,9 @@ export async function insertNewUser(user) {
         history: [],
     });
 }
+
+const authRepository = {
+    getByEmail,
+    create,
+};
+export default authRepository;

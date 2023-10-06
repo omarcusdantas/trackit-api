@@ -1,7 +1,6 @@
 import { db } from "../app.js";
 
-// Sends specific field query update for bulk write
-export function updateQuery(userId, data) {
+function newQuery(userId, data) {
     const { currentActivities, habits, history } = data;
     let content;
 
@@ -23,25 +22,30 @@ export function updateQuery(userId, data) {
     };
 }
 
-// Searches users by utc offset
-export async function getUsersByUtcOffset(utcOffset) {
-    return await db.collection("users").find({ utcOffset }).toArray();
+async function getUsersByUtcOffset(utcOffset) {
+    return db.collection("users").find({ utcOffset }).toArray();
 }
 
-// Gets habits of multiple users
-export async function getUsersHabits(users) {
-    return await db
+async function getUsersHabitsAndCurrentActivities(users) {
+    return db
         .collection("usersHabits")
         .find({ userId: { $in: users } })
         .toArray();
 }
 
-// Executes queries for specific collection
-export async function executeBulkWrite(collection, data) {
-    await db.collection(collection).bulkWrite(data);
+async function executeBulkWrite(collection, data) {
+    return db.collection(collection).bulkWrite(data);
 }
 
-// Updates lastWeekday of multiple users
-export async function updateUsersWeekday(users, lastWeekday) {
-    await db.collection("users").updateMany({ _id: { $in: users } }, { $set: { lastWeekday } });
+async function updateUsersWeekday(users, lastWeekday) {
+    return db.collection("users").updateMany({ _id: { $in: users } }, { $set: { lastWeekday } });
 }
+
+const updateRepository = {
+    newQuery,
+    getUsersByUtcOffset,
+    getUsersHabitsAndCurrentActivities,
+    executeBulkWrite,
+    updateUsersWeekday,
+};
+export default updateRepository;

@@ -1,7 +1,11 @@
-import { db } from "../app.js";
 import { ObjectId } from "mongodb";
+import { db } from "../app.js";
 
-// Retrieves user' history
-export async function getHistoryByUserId(id) {
-    return await db.collection("usersHistory").findOne({ userId: new ObjectId(id) });
+async function getByUserId(id) {
+    return db.collection("usersHistory").findOne({ userId: new ObjectId(id) });
 }
+
+const historyRepository = {
+    getByUserId,
+};
+export default historyRepository;
