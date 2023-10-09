@@ -4,7 +4,7 @@ import dailyActivitiesService from "../services/dailyActivities.service.js";
 async function get(req, res) {
     const { userId, utcOffset } = res.locals.user;
     const dailyActivities = await dailyActivitiesService.getByUserId(userId, utcOffset);
-    return res.status(httpStatus.OK).send({ dailyActivities });
+    return res.status(httpStatus.OK).send(dailyActivities);
 }
 
 async function update(req, res) {
