@@ -1,3 +1,4 @@
+import httpStatus from "http-status";
 import historyService from "../services/history.service.js";
 
 async function get(req, res) {
