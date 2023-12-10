@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import httpStatus from "http-status";
 import { authService } from "@/services/auth.service";
-import { SignupData, SigninData } from "@/protocols/auth.protocol.js";
+import { SignupData, SigninData } from "@/protocols/auth.protocol";
 
 async function signup(req: Request, res: Response) {
     const body = req.body as SignupData;

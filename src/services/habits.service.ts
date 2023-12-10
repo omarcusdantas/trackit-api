@@ -34,13 +34,15 @@ function updatecurrentActivities(data: UpdateCurrentActivitiesData) {
 
     if (currentActivities?.date === currentDay) {
         currentActivities.habits.push(generateActivityData(newHabit.name, newHabit.id));
-        return habitsRepository.createHabitAndUpdateCurrentActivities(userId, { newHabit, currentActivities });
+        return habitsRepository
+            .createHabitAndUpdateCurrentActivities(userId, { newHabit, currentActivities });
     }
     const newCurrent = {
         date: currentDay,
         habits: [ generateActivityData(newHabit.name, newHabit.id) ],
     };
-    return habitsRepository.createHabitAndUpdateCurrentActivities(userId, { newHabit, currentActivities: newCurrent });
+    return habitsRepository
+        .createHabitAndUpdateCurrentActivities(userId, { newHabit, currentActivities: newCurrent });
 }
 
 async function create(data: HabitInput, userId: number, utcOffset: number) {
@@ -72,11 +74,14 @@ function deleteHabitAndUpdateCurrentActivities(data: DeleteAndUpdateData) {
     if (habit.days.includes(weekday)) {
         currentActivities.habits = currentActivities.habits.filter((habit) => habit.id !== habitId);
         if (currentActivities.habits.length === 0) {
-            return habitsRepository.updateHabitsAndCurrentActivitiesByUserId(userId, { habits, currentActivities: {} });
+            return habitsRepository
+                .updateHabitsAndCurrentActivitiesByUserId(userId, { habits, currentActivities: {} });
         }
-        return habitsRepository.updateHabitsAndCurrentActivitiesByUserId(userId, { habits, currentActivities });
+        return habitsRepository
+            .updateHabitsAndCurrentActivitiesByUserId(userId, { habits, currentActivities });
     }
-    return habitsRepository.updateHabitsAndCurrentActivitiesByUserId(userId, { habits });
+    return habitsRepository
+        .updateHabitsAndCurrentActivitiesByUserId(userId, { habits });
 }
 
 async function deleteById(userId: number, utcOffset: number, habitId: number) {

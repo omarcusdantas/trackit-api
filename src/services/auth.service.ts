@@ -31,12 +31,18 @@ async function generateToken(email: string, password: string) {
     if (!foundUser) {
         throw { type: "unauthorized", message: "Invalid email and/or password" };
     }
-
     if (compareSync(password, foundUser.password)) {
         const tokenExpirationInSeconds = 60 * 60 * 24 * 30; // 30 days
-        const token = jwt.sign({ userId: foundUser._id, utcOffset: foundUser.utcOffset }, process.env.JWT_SECRET, {
-            expiresIn: tokenExpirationInSeconds,
-        });
+        const token = jwt.sign(
+            {
+                userId: foundUser._id,
+                utcOffset: foundUser.utcOffset,
+            },
+            process.env.JWT_SECRET,
+            {
+                expiresIn: tokenExpirationInSeconds,
+            }
+        );
         return { name: foundUser.name, token };
     }
     throw { type: "unauthorized", message: "Invalid email and/or password" };

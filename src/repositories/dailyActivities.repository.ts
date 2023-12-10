@@ -11,7 +11,9 @@ async function readByUserId(userId: number): Promise<CurrentActivities> {
 }
 
 function updateByUserId(userId: number, currentActivities: CurrentActivities) {
-    return db.collection("usersHabits").updateOne({ userId: new ObjectId(userId) }, { $set: { currentActivities } });
+    return db
+        .collection("usersHabits")
+        .updateOne({ userId: new ObjectId(userId) }, { $set: { currentActivities } });
 }
 
 export const dailyActivitiesRepository = {

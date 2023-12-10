@@ -52,7 +52,9 @@ function executeBulkWrite(collection: string, data: QueryToUpdateUser[]) {
 }
 
 function updateUsersWeekday(usersIds: string[], lastWeekday: number) {
-    return db.collection("users").updateMany({ _id: { $in: usersIds } }, { $set: { lastWeekday } });
+    return db
+        .collection("users")
+        .updateMany({ _id: { $in: usersIds } }, { $set: { lastWeekday } });
 }
 
 export const usersRepository = {

@@ -20,7 +20,8 @@ async function getByUserId(userId: number, utcOffset: number) {
     const currentActivities = await dailyActivitiesRepository.readByUserId(userId);
     const currentDate = getDateByUtc(utcOffset);
 
-    const dailyActivities = currentActivities?.date === currentDate ? currentActivities.habits : [];
+    const dailyActivities = 
+        currentActivities?.date === currentDate ? currentActivities.habits : [];
     return dailyActivities;
 }
 

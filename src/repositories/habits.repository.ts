@@ -14,7 +14,9 @@ function createHabitAndUpdateCurrentActivities(userId: number, data: NewHabitAnd
             }
         );
     }
-    return db.collection("usersHabits").updateOne({ userId: new ObjectId(userId) }, { $push: { habits: newHabit } });
+    return db
+        .collection("usersHabits")
+        .updateOne({ userId: new ObjectId(userId) }, { $push: { habits: newHabit } });
 }
 
 function getHabitsAndCurrentActivitiesByUserId(id: number): Promise<HabitsAndCurrenctActivities> {
@@ -39,7 +41,9 @@ function updateHabitsAndCurrentActivitiesByUserId(
             .collection("usersHabits")
             .updateOne({ userId: new ObjectId(userId) }, { $set: { habits, currentActivities } });
     }
-    return db.collection("usersHabits").updateOne({ userId: new ObjectId(userId) }, { $set: { habits } });
+    return db
+        .collection("usersHabits")
+        .updateOne({ userId: new ObjectId(userId) }, { $set: { habits } });
 }
 
 export const habitsRepository = {
